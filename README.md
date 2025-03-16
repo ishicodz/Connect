@@ -1,4 +1,4 @@
-##Connect
+## Connect
 
 A multiplayer turn-based strategy game with a vibrant neon theme where players compete to dominate the board with their color by strategically placing the balls.
 
