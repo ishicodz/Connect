@@ -499,6 +499,7 @@ function createEmptyBoard() {
 function handleCellClick(row, col) {
     // Only allow clicks if the game is in progress and not during explosions
     if (!gameState || gameState.status !== 'playing' || isProcessingExplosion) {
+        console.log("Click blocked - Game state:", gameState?.status, "Processing explosion:", isProcessingExplosion);
         return;
     }
     
@@ -523,28 +524,32 @@ function handleCellClick(row, col) {
             addBallToCell(row, col);
             actionTaken = true;
         } else if (cell.balls === 3) {
+            // Set the flag to prevent further actions during explosion BEFORE adding the ball
+            isProcessingExplosion = true;
+            
             // 3 balls - add one more
             addBallToCell(row, col);
             actionTaken = true;
             
-            // Now the cell has 4 balls, it should explode
-            // Set the flag to prevent further actions during explosion
-            isProcessingExplosion = true;
+            // Reset explosion tracking
             explosionQueue = [];
             pendingAnimations = 0;
+            gameState.recentlyExploded = new Set();
             
             // Start the explosion
-            explodeCell(row, col, currentPlayer.color);
-
-            // Process the explosion queue
-            processExplosionQueue();
+            setTimeout(() => {
+                explodeCell(row, col, currentPlayer.color);
+                processExplosionQueue();
+            }, 50);
+            
+            return; // Exit early as explosion will handle turn change
         }
     } else {
         // Cannot click on opponent's ball
         return;
     }
     
-    // Only proceed if an action was taken and it's not an explosion (which is handled separately)
+    // Only proceed if an action was taken and it's not an explosion
     if (actionTaken && !isProcessingExplosion) {
         // Check for win condition
         const gameWon = checkWinCondition();
@@ -742,27 +747,29 @@ function processExplosionQueue() {
     }
 }
 
-// Check if all explosions and animations are complete
+// Check if all explosions are complete
 function checkExplosionsComplete() {
-    if (explosionQueue.length === 0 && pendingAnimations === 0 && isProcessingExplosion) {
-        // All explosions are done, reset the flag
+    if (pendingAnimations === 0 && explosionQueue.length === 0) {
+        console.log("All explosions complete");
+        
+        // Clear the processing flag
         isProcessingExplosion = false;
         
-        // Clear the recently exploded cells set
+        // Check for win condition
+        const gameWon = checkWinCondition();
+        
+        // Only move to next player if game is not won
+        if (!gameWon && gameState.status === 'playing') {
+            moveToNextPlayer();
+        }
+        
+        // Clear recently exploded cells
         if (gameState.recentlyExploded) {
             gameState.recentlyExploded.clear();
         }
         
-        // Check for win condition before moving to next player
-        const gameWon = checkWinCondition();
-        
-        // Move to next player if game is still in progress
-        if (!gameWon && gameState && gameState.status === 'playing') {
-            // Delay the next turn slightly for better UX
-            setTimeout(() => {
-                moveToNextPlayer();
-            }, 300);
-        }
+        // Update the display
+        updateBoardDisplay();
     }
 }
 
